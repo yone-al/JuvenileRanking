@@ -199,58 +199,41 @@
 //     score: clampedScore,
 //   };
 // }
-
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 
-// スコアカテゴリーの型を4種類に限定
+// 4種類のスコアカテゴリー
 type ScoreCategory = "total" | "falling" | "cut" | "number";
 
-// 各チームのデータ型の定義
+// API から取得するデータの型
 interface TeamData {
-  team: string;
-  total: number;
-  falling: number;
-  cut: number;
-  number: number;
+  team: string;    // 「名前」
+  total: number;   // 「総計」または（落下物＋調理＋レジ）
+  falling: number; // 「落下物」
+  cut: number;     // 「調理」
+  number: number;  // 「レジ」
 }
 
-// サンプル生データ
-const rawData: TeamData[] = [
-  { team: "Team A", total: 9000, falling: 4500, cut: 2500, number: 2000 },
-  { team: "Team B", total: 7500, falling: 3300, cut: 3000, number: 2200 },
-  { team: "Team C", total: 10000, falling: 5000, cut: 1000, number: 4000 },
-  { team: "Team D", total: 8000, falling: 3700, cut: 3200, number: 1100 },
-  { team: "Team E", total: 8500, falling: 4000, cut: 2800, number: 1700 },
-  { team: "Team F", total: 9500, falling: 6000, cut: 3000, number: 500 },
-  // { team: "Team G", total: 7500, falling: 3300, cut: 3000, number: 2200 },
-  // { team: "Team H", total: 7500, falling: 3300, cut: 3000, number: 2200 },
-  // { team: "Team I", total: 7500, falling: 3300, cut: 3000, number: 2200 },
-  // { team: "Team J", total: 7500, falling: 3300, cut: 3000, number: 2200 },
-  // { team: "Team K", total: 7500, falling: 3300, cut: 3000, number: 2200 },
-  // { team: "Team L", total: 7500, falling: 3300, cut: 3000, number: 2200 },
-  // { team: "Team M", total: 7500, falling: 3300, cut: 3000, number: 2200 },
-  // 必要に応じてさらにデータを追加
-];
-
-// 各項目に表示制限をかける関数
+// 各項目に上限制限をかける関数（必要であれば）
 function clampData(item: TeamData): TeamData {
   return {
-    team: item.team.slice(0, 10), // チーム名は先頭10文字まで
-    total: Math.min(item.total, 99999),        // 総スコアは最大5桁
-    falling: Math.min(item.falling, 999999),     // 落下物ゲームスコアは最大6桁
-    cut: Math.min(item.cut, 999999),             // 食べ物カットスコアは最大6桁
-    number: Math.min(item.number, 999999),       // 数字ゲームスコアは最大6桁
+    team: item.team.slice(0, 10),
+    total: Math.min(item.total, 99999),
+    falling: Math.min(item.falling, 999999),
+    cut: Math.min(item.cut, 999999),
+    number: Math.min(item.number, 999999),
   };
 }
 
-export default function Home() {
-  // 初期表示は「総スコア」（"total"）
+export default function HomePage() {
+  // 初期表示は「総スコア」
   const [selectedCategory, setSelectedCategory] = useState<ScoreCategory>("total");
+  // API から取得したチームデータ
+  const [teamData, setTeamData] = useState<TeamData[]>([]);
 
-  // 各カテゴリーの表示名
+  // カテゴリー名の表示用
   const categoryDisplay: Record<ScoreCategory, string> = {
     total: "総スコア",
     falling: "落下物ゲームスコア",
@@ -258,17 +241,56 @@ export default function Home() {
     number: "数字ゲームスコア",
   };
 
-  // rawData に制限をかけたデータを生成
-  const processedData: TeamData[] = rawData.map(clampData);
+  // API エンドポイント URL (POST { "mode": "readAll" } を送信)
+  const apiUrl =
+    "https://script.google.com/macros/s/AKfycbySsPF65tyanLnoJOQVyuuGVgJ-6n1squtOEAux2L7FSt0gwfZGa0wpkBYKWNEWIUeRtA/exec";
 
-  // 選択中のカテゴリーで降順ソートしたランキングデータ
-  const sortedData = [...processedData].sort(
+  // マウント時にAPIからデータを取得
+  useEffect(() => {
+    fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "readAll" }),
+    })
+      .then((res) => {
+        console.log("Response status:", res.status);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        console.log("Fetched data:", data);
+        // dataが配列でない場合は [data] に変換
+        const entries = Array.isArray(data) ? data : [data];
+        // 各エントリーは { "名前": ..., "落下物": ..., "調理": ..., "レジ": ..., "総計": ... } を返す前提
+        const fetchedData: TeamData[] = entries.map((entry: any) => {
+          const team = entry["名前"] || "";
+          const falling = Number(entry["落下物"]) || 0;
+          const cut = Number(entry["調理"]) || 0;
+          const numberVal = Number(entry["レジ"]) || 0;
+          // 総計が存在すればそれを、存在しなければ falling+cut+numberVal を使用
+          const total =
+            entry["総計"] !== undefined
+              ? Number(entry["総計"])
+              : falling + cut + numberVal;
+          return { team, total, falling, cut, number: numberVal };
+        });
+        const clamped = fetchedData.map(clampData);
+        console.log("Clamped data:", clamped);
+        setTeamData(clamped);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch data:", err);
+      });
+  }, [apiUrl]);
+
+  // 選択されたカテゴリーで降順にソート
+  const sortedData = [...teamData].sort(
     (a, b) => b[selectedCategory] - a[selectedCategory]
   );
 
   return (
     <div style={{ padding: "1rem" }}>
-      {/* 4種類のカテゴリー選択ボタン */}
+      {/* カテゴリー選択ボタン（固定しない場合もここに配置） */}
       <div
         style={{
           display: "flex",
@@ -296,7 +318,7 @@ export default function Home() {
         ))}
       </div>
 
-      {/* タイトル部 */}
+      {/* タイトル */}
       <div style={{ textAlign: "center", marginBottom: "1rem" }}>
         <h1 style={{ fontWeight: "bold", fontSize: "3rem", margin: 0 }}>
           {categoryDisplay[selectedCategory]} ランキング
@@ -310,26 +332,31 @@ export default function Home() {
             margin: "0 auto",
             borderCollapse: "collapse",
             tableLayout: "fixed",
-            width: "80%",
+            width: "60%",
           }}
         >
           <colgroup>
-            {/* 列幅の割り当て：順位20%、チーム名60%、スコア20% */}
             <col style={{ width: "20%" }} />
-            <col style={{ width: "60%" }} />
-            <col style={{ width: "20%" }} />
+            <col style={{ width: "40%" }} />
+            <col style={{ width: "40%" }} />
           </colgroup>
           <thead>
             <tr style={{ borderBottom: "2px solid #000" }}>
-              <th style={{ padding: "0.75rem", fontSize: "1.5rem" }}>順位</th>
-              <th style={{ padding: "0.75rem", fontSize: "1.5rem" }}>チーム名</th>
-              <th style={{ padding: "0.75rem", fontSize: "1.5rem" }}>スコア</th>
+              <th style={{ padding: "0.75rem", fontSize: "1.5rem" }}>
+                順位
+              </th>
+              <th style={{ padding: "0.75rem", fontSize: "1.5rem" }}>
+                チーム名
+              </th>
+              <th style={{ padding: "0.75rem", fontSize: "1.5rem" }}>
+                スコア
+              </th>
             </tr>
           </thead>
           <tbody>
             {sortedData.map((item, index) => (
               <tr
-                key={item.team}
+                key={`${item.team}-${index}`}
                 style={{
                   borderBottom: "1px solid #ccc",
                   backgroundColor: index % 2 === 0 ? "#f2f2f2" : "#ffffff",
@@ -351,6 +378,7 @@ export default function Home() {
                     verticalAlign: "middle",
                     fontSize: "1.3rem",
                     textAlign: "center",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {item.team}
@@ -361,6 +389,7 @@ export default function Home() {
                     verticalAlign: "middle",
                     fontSize: "1.3rem",
                     textAlign: "center",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {item[selectedCategory]}点
@@ -370,38 +399,38 @@ export default function Home() {
           </tbody>
         </table>
       </div>
-      <div
-           style={{
-             position: "fixed",
-             top: "80%",
-             left: "5%",
-             transform: "translate(-50%, -50%) scale(0.5)",
-           }}
-      >
-           <Image
-             src="/images/Apple.png"
-             alt="リンゴの画像"
-             width={200}
-             height={200}
-            ></Image> 
-      </div>      
-      <div
-          style={{
-            position: "fixed",
-            top: "20%",
-            left: "95%",
-            transform: "translate(-50%, -50%) scale(0.5)",
-          }}
-        >
-          <Image
-            src="/images/ApplePie.jpeg"
-            alt="アップルパイの画像"
-            width={200}
-            height={200}
-          />
-        </div>
 
-      {/* ※ 装飾用画像が必要なら、ここに Image コンポーネントなどを追加 */}
+      {/* 固定配置：リンゴ（左下）とアップルパイ（右上） */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: "10%",
+          left: "10%",
+          transform: "translate(-50%, -50%) scale(0.6)",
+        }}
+      >
+        <Image
+          src="/images/Apple.png"
+          alt="リンゴの画像"
+          width={200}
+          height={200}
+        />
+      </div>
+      <div
+        style={{
+          position: "fixed",
+          top: "10%",
+          right: "10%",
+          transform: "translate(50%, -50%) scale(0.6)",
+        }}
+      >
+        <Image
+          src="/images/ApplePie.jpeg"
+          alt="アップルパイの画像"
+          width={200}
+          height={200}
+        />
+      </div>
     </div>
   );
 }
