@@ -1,0 +1,64 @@
+.decorationImage {
+  position: fixed;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.bottomLeft {
+  bottom: 2%;
+  left: 2%;
+  transform: scale(0.6);
+  transform-origin: bottom left;
+}
+
+.topRight {
+  top: 15%;
+  right: 2%;
+  transform: scale(0.6);
+  transform-origin: top right;
+}
+
+.image {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 768px) {
+  .decorationImage {
+    opacity: 0.6;
+  }
+  
+  .bottomLeft {
+    transform: scale(0.4);
+    bottom: 1%;
+    left: 1%;
+  }
+  
+  .topRight {
+    transform: scale(0.4);
+    top: 10%;
+    right: 1%;
+  }
+}
+
+@media (max-width: 480px) {
+  .decorationImage {
+    opacity: 0.4;
+  }
+  
+  .bottomLeft {
+    transform: scale(0.3);
+  }
+  
+  .topRight {
+    transform: scale(0.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .decorationImage {
+    transition: none;
+  }
+}

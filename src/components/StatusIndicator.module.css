@@ -1,0 +1,72 @@
+.container {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.loadingIndicator {
+  padding: 0.5rem;
+  background-color: #e3f2fd;
+  border-radius: 5px;
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  color: #1565c0;
+  font-weight: 500;
+}
+
+.errorIndicator {
+  padding: 0.5rem;
+  background-color: #ffebee;
+  color: #c62828;
+  border-radius: 5px;
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  border: 1px solid #ffcdd2;
+}
+
+.updateInfo {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.refreshButton {
+  margin-left: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.refreshButton:hover {
+  background-color: #45a049;
+}
+
+.refreshButton:focus {
+  outline: 2px solid #2e7d32;
+  outline-offset: 2px;
+}
+
+.refreshButton:active {
+  background-color: #3d8b40;
+}
+
+@media (max-width: 480px) {
+  .updateInfo {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .refreshButton {
+    margin-left: 0;
+  }
+}
