@@ -750,6 +750,7 @@ export default function HomePage() {
   const displayData =
     selectedCategory === "latest" ? sortedData.slice(0, 5) : sortedData;
 
+
   return (
     <div style={{ padding: "1rem" }}>
       {/* カテゴリー選択ボタン */}
@@ -832,18 +833,33 @@ export default function HomePage() {
                 style={{
                   borderBottom: "1px solid #ccc",
                   backgroundColor:
+                    index + 1 === 1 ? "#fff9e6" : // Light Gold
+                    index + 1 === 2 ? "#f5f5f5" : // Light Silver
+                    index + 1 === 3 ? "#fdf5e6" : // Light Bronze
                     index % 2 === 0 ? "#f2f2f2" : "#ffffff",
+                  boxShadow:
+                    index + 1 === 1 ? "0 4px 8px rgba(255, 215, 0, 0.3)" :
+                    index + 1 === 2 ? "0 3px 6px rgba(192, 192, 192, 0.3)" :
+                    index + 1 === 3 ? "0 2px 4px rgba(205, 127, 50, 0.3)" : "none",
+                  border:
+                    index + 1 === 1 ? "2px solid #b8860b" :
+                    index + 1 === 2 ? "2px solid #a0a0a0" :
+                    index + 1 === 3 ? "2px solid #8b4513" : "none",
                 }}
               >
                 <td
                   style={{
                     padding: "0.75rem",
                     verticalAlign: "middle",
-                    fontSize: "1.3rem",
+                    fontSize: index + 1 <= 3 ? "1.5rem" : "1.3rem",
                     textAlign: "center",
+                    fontWeight: index + 1 <= 3 ? "bold" : "normal",
                   }}
                 >
-                  {index + 1}位
+                  {index + 1 === 1 && "🥇 1位"}
+                  {index + 1 === 2 && "🥈 2位"}
+                  {index + 1 === 3 && "🥉 3位"}
+                  {index + 1 > 3 && `${index + 1}位`}
                 </td>
                 <td
                   style={{
@@ -860,9 +876,11 @@ export default function HomePage() {
                   style={{
                     padding: "0.75rem",
                     verticalAlign: "middle",
-                    fontSize: "1.3rem",
+                    fontSize: index + 1 <= 3 ? "1.5rem" : "1.3rem",
+                    fontWeight: index + 1 <= 3 ? "bold" : "normal",
                     textAlign: "center",
                     whiteSpace: "nowrap",
+                    textShadow: index + 1 <= 3 ? "1px 1px 2px rgba(0,0,0,0.3)" : "none",
                   }}
                 >
                   {selectedCategory === "latest"
