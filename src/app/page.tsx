@@ -843,7 +843,10 @@ export default function HomePage() {
                     textAlign: "center",
                   }}
                 >
-                  {index + 1}位
+                  {index + 1 === 1 && "🥇 1位"}
+                  {index + 1 === 2 && "🥈 2位"}
+                  {index + 1 === 3 && "🥉 3位"}
+                  {index + 1 > 3 && `${index + 1}位`}
                 </td>
                 <td
                   style={{
