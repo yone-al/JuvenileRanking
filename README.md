@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# JuvenileRanking
 
-## Getting Started
+チームの得点を管理し、ランキングを表示するWebアプリケーション
 
-First, run the development server:
+## 概要
+
+JuvenileRankingは、複数のゲームでのチームスコアを追跡し、リアルタイムでランキングを表示するNext.jsアプリケーションです。Google Apps Scriptと連携してデータを取得し、自動的に切り替わるタブで様々な角度からランキングを確認できます。
+
+## 機能
+
+- **リアルタイムランキング表示**: トップ5、総スコア、各ゲーム別のランキングを表示
+- **自動タブ切り替え**: 5秒ごとに自動的にタブが切り替わり、すべてのランキングを順番に表示
+- **メダル表示**: 上位3位までにメダルアイコン（🥇🥈🥉）を表示
+- **最新チーム表示**: 最新のチーム情報をハイライト表示
+- **レスポンシブデザイン**: 画面サイズに応じた最適な表示
+
+## 技術スタック
+
+- **フレームワーク**: Next.js 15.3.0
+- **言語**: TypeScript
+- **スタイリング**: Tailwind CSS
+- **データ取得**: Google Apps Script API
+
+## インストール
+
+```bash
+# リポジトリのクローン
+git clone https://github.com/yone-al/JuvenileRanking.git
+
+# ディレクトリへ移動
+cd JuvenileRanking
+
+# 依存関係のインストール
+npm install
+```
+
+## 使用方法
+
+### 開発サーバーの起動
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ブラウザで [http://localhost:3000](http://localhost:3000) を開いてアプリケーションを確認します。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### ビルド
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+```
 
-## Learn More
+### プロダクション環境での起動
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm start
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### リンティング
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run lint
+```
 
-## Deploy on Vercel
+## プロジェクト構造
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+JuvenileRanking/
+├── src/
+│   ├── app/
+│   │   └── page.tsx         # メインページコンポーネント
+│   ├── func/                # API通信関数
+│   └── interface/           # TypeScript型定義
+├── public/
+│   └── images/             # 画像アセット
+│       ├── Apple.png
+│       └── ApplePie.jpeg
+├── package.json
+└── README.md
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## カテゴリー説明
+
+- **トップ5**: 総スコア上位5チームを表示
+- **総スコア**: 全ゲームの合計スコアランキング
+- **Game1 スコア**: 落ちるゲームのスコアランキング
+- **Game2 スコア**: カットゲームのスコアランキング
+- **Game3 スコア**: ナンバーゲームのスコアランキング
+
+## 動作仕様
+
+1. **初回読み込み時**: 20秒間「トップ5」タブで静止
+2. **自動切り替え**: その後5秒ごとにタブが自動切り替え
+3. **手動操作**: タブをクリックすると30秒間そのタブで静止、その後自動切り替え再開
+
+## 開発者向け情報
+
+### ブランチ戦略
+
+- `main`: プロダクション環境
+- `yone/develop`: 開発ブランチ
+- 機能開発は個別のフィーチャーブランチで実施
+
+### コミット履歴
+
+最近の主な変更:
+- 1, 2, 3位にメダル表示を追加
+- リロード時にはじめ20秒Top5で静止するように変更
+- 各種調整とバグ修正
+
+## ライセンス
+
+Private Repository
+
+## 作成者
+
+yone-al
