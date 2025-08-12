@@ -623,10 +623,11 @@ import Image from "next/image";
 import { getItems } from "@/func";
 import { TeamData } from "@/interface";
 
-// 5種類のスコアカテゴリー
-type ScoreCategory = "latest" | "total" | "falling" | "cut" | "number";
+// 6種類のスコアカテゴリー
+type ScoreCategory = "latest" | "recent" | "total" | "falling" | "cut" | "number";
 const categories: ScoreCategory[] = [
   "latest",
+  "recent",
   "total",
   "falling",
   "cut",
@@ -646,6 +647,7 @@ export default function HomePage() {
   // 表示用ラベル
   const categoryDisplay: Record<ScoreCategory, string> = {
     latest: "トップ5",
+    recent: "最近30件",
     total: "総スコア",
     falling: "Game1 スコア",
     cut: "Game2 スコア",
@@ -736,6 +738,16 @@ export default function HomePage() {
       ? [...validTeamData].reverse()[0]
       : null;
   const sortedByTotal = [...validTeamData].sort((a, b) => b.total - a.total);
+  
+  // 最近30件のデータとその中での順位計算
+  const recent30Teams = [...validTeamData].slice(-30);
+  const recent30Sorted = [...recent30Teams].sort((a, b) => b.total - a.total);
+  const recentRank = 
+    latestTeam != null && recent30Teams.includes(latestTeam)
+      ? recent30Sorted.findIndex((item) => item === latestTeam) + 1
+      : null;
+  const recent30Count = recent30Teams.length;
+  
   const latestRank =
     latestTeam != null
       ? sortedByTotal.findIndex((item) => item === latestTeam) + 1
@@ -744,6 +756,8 @@ export default function HomePage() {
   const sortedData =
     selectedCategory === "latest"
       ? sortedByTotal
+      : selectedCategory === "recent"
+      ? recent30Sorted
       : [...validTeamData].sort(
           (a, b) => b[selectedCategory] - a[selectedCategory]
         );
@@ -868,7 +882,7 @@ export default function HomePage() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {selectedCategory === "latest"
+                  {selectedCategory === "latest" || selectedCategory === "recent"
                     ? item.total
                     : item[selectedCategory]}
                   点
@@ -880,7 +894,7 @@ export default function HomePage() {
       </div>
 
       {/* 最新チーム情報：カード風 */}
-      {selectedCategory === "latest" && latestTeam && (
+      {(selectedCategory === "latest" || selectedCategory === "recent") && latestTeam && (
         <div
           style={{
             width: "60%",
@@ -900,8 +914,9 @@ export default function HomePage() {
             }}
           >
             最新チーム：{latestTeam.team}
-            {latestRank != null &&
-              `（${latestRank}位／${totalTeams}組中）`}
+            {selectedCategory === "recent" 
+              ? recentRank != null && `（${recentRank}位／${recent30Count}組中）`
+              : latestRank != null && `（${latestRank}位／${totalTeams}組中）`}
           </h2>
           <p style={{ fontSize: "1.5rem", margin: 0 }}>
             総スコア：{latestTeam.total}点
