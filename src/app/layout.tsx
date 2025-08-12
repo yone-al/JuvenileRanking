@@ -37,6 +37,12 @@
 // app/layout.tsx
 
 // app/layout.tsx (サーバーコンポーネント)
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Juvenile Ranking",
+  description: "ランキング表示アプリケーション",
+};
 
 export default function RootLayout({
   children,
