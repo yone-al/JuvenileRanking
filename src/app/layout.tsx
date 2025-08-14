@@ -52,9 +52,7 @@ export default function RootLayout({
   // ★静的なHTMLのみ
   return (
     <html lang="ja">
-      <body>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
