@@ -654,20 +654,19 @@ export default function HomePage() {
     number: "Game3 スコア",
   };
 
-  const apiUrl =
-    "https://script.google.com/macros/s/AKfycbySsPF65tyanLnoJOQVyuuGVgJ-6n1squtOEAux2L7FSt0gwfZGa0wpkBYKWNEWIUeRtA/exec";
+  // APIのURLはサーバーサイドのgetItems関数内で環境変数から取得
 
   // --- データ取得 ---
   useEffect(() => {
     (async () => {
       try {
-        const result = await getItems(apiUrl);
+        const result = await getItems();
         setTeamData(result);
       } catch (error) {
         console.error("API fetch error:", error);
       }
     })();
-  }, [apiUrl]);
+  }, []);
 
   // --- タイマー制御 ---
   const clearAuto = () => {
@@ -692,7 +691,7 @@ export default function HomePage() {
     clearAuto();
     intervalRef.current = setInterval(() => {
       rotateNext();
-    }, 5000); // 5秒ごとにタブを切り替え
+    }, Number(process.env.NEXT_PUBLIC_TAB_ROTATION_INTERVAL));
   };
 
   // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 修正箇所 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
@@ -704,7 +703,7 @@ export default function HomePage() {
       rotateNext();
       // その後、5秒ごとの自動切り替えを開始
       startAuto();
-    }, 20000); // 20秒 = 20000ミリ秒
+    }, Number(process.env.NEXT_PUBLIC_TAB_STARTUP_DELAY));
 
     // 設定したタイマーのIDをrefに保存
     timeoutRef.current = initialDelay;
@@ -725,7 +724,7 @@ export default function HomePage() {
     timeoutRef.current = setTimeout(() => {
       rotateNext();
       startAuto();
-    }, 30 * 1000);
+    }, Number(process.env.NEXT_PUBLIC_TAB_MANUAL_PAUSE) || 30000);
   };
 
   // --- レンダリング用データ ---
@@ -738,16 +737,16 @@ export default function HomePage() {
       ? [...validTeamData].reverse()[0]
       : null;
   const sortedByTotal = [...validTeamData].sort((a, b) => b.total - a.total);
-  
+
   // 最近30件のデータとその中での順位計算
   const recent30Teams = [...validTeamData].slice(-30);
   const recent30Sorted = [...recent30Teams].sort((a, b) => b.total - a.total);
-  const recentRank = 
+  const recentRank =
     latestTeam != null && recent30Teams.includes(latestTeam)
       ? recent30Sorted.findIndex((item) => item === latestTeam) + 1
       : null;
   const recent30Count = recent30Teams.length;
-  
+
   const latestRank =
     latestTeam != null
       ? sortedByTotal.findIndex((item) => item === latestTeam) + 1
@@ -914,7 +913,7 @@ export default function HomePage() {
             }}
           >
             最新チーム：{latestTeam.team}
-            {selectedCategory === "recent" 
+            {selectedCategory === "recent"
               ? recentRank != null && `（${recentRank}位／${recent30Count}組中）`
               : latestRank != null && `（${latestRank}位／${totalTeams}組中）`}
           </h2>

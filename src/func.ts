@@ -17,7 +17,11 @@ function clampData(item: TeamData): TeamData {
     };
 }
 // サーバーアクションはデータを返し、クライアントコンポーネントがそれを状態に設定する
-export async function getItems(url: string): Promise<TeamData[]> {
+export async function getItems(): Promise<TeamData[]> {
+    const url = process.env.GAS_API_URL;
+    if (!url) {
+        throw new Error('GAS_API_URL environment variable is not set');
+    }
 
     const payload = {
         mode: "readAll"
