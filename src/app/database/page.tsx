@@ -21,27 +21,13 @@ export default async function DatabasePage() {
           <table className="ranking-table min-w-full">
             <thead>
               <tr>
-                <th>
-                  順位
-                </th>
-                <th>
-                  プレイヤー名
-                </th>
-                <th>
-                  Game 1
-                </th>
-                <th>
-                  Game 2
-                </th>
-                <th>
-                  Game 3
-                </th>
-                <th>
-                  合計スコア
-                </th>
-                <th>
-                  登録日時
-                </th>
+                <th>順位</th>
+                <th>プレイヤー名</th>
+                <th>Game 1</th>
+                <th>Game 2</th>
+                <th>Game 3</th>
+                <th>合計スコア</th>
+                <th>登録日時</th>
               </tr>
             </thead>
             <tbody>
@@ -53,21 +39,11 @@ export default async function DatabasePage() {
                     {index === 2 && "🥉 3位"}
                     {index > 2 && `${index + 1}位`}
                   </td>
-                  <td className="player-cell">
-                    {row.name}
-                  </td>
-                  <td className="score-cell">
-                    {row.game1.toLocaleString()}
-                  </td>
-                  <td className="score-cell">
-                    {row.game2.toLocaleString()}
-                  </td>
-                  <td className="score-cell">
-                    {row.game3.toLocaleString()}
-                  </td>
-                  <td className="total-cell">
-                    {row.total.toLocaleString()}点
-                  </td>
+                  <td className="player-cell">{row.name}</td>
+                  <td className="score-cell">{row.game1.toLocaleString()}</td>
+                  <td className="score-cell">{row.game2.toLocaleString()}</td>
+                  <td className="score-cell">{row.game3.toLocaleString()}</td>
+                  <td className="total-cell">{row.total.toLocaleString()}点</td>
                   <td className="date-cell">
                     {new Date(row.created_at).toLocaleDateString("ja-JP", {
                       year: "numeric",
