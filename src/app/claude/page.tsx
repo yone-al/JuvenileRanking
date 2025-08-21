@@ -57,6 +57,10 @@ export default function ClaudePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [sortColumn, setSortColumn] = useState<
+    "game1" | "game2" | "game3" | "total"
+  >("total");
+  const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
 
   // フォームデータを追加と編集で分離
   const [addFormData, setAddFormData] = useState<FormData>(initialFormData);
@@ -236,21 +240,54 @@ export default function ClaudePage() {
     }
   };
 
+  // ソート処理のハンドラー
+  const handleSort = (column: "game1" | "game2" | "game3" | "total") => {
+    if (sortColumn === column) {
+      // 同じカラムをクリックした場合は方向を切り替える
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // 異なるカラムをクリックした場合は降順から始める
+      setSortColumn(column);
+      setSortDirection("desc");
+    }
+  };
+
   // 順位計算を最適化 (O(n)に改善)
   const rankedData = useMemo(() => {
-    // スコアでグループ化
-    const scoreGroups = new Map<number, number[]>();
-    data.forEach((row, index) => {
-      if (!scoreGroups.has(row.total)) {
-        scoreGroups.set(row.total, []);
+    // データをソート
+    const sortedData = [...data].sort((a, b) => {
+      let aValue, bValue;
+
+      if (sortColumn === "total") {
+        aValue = a.total;
+        bValue = b.total;
+      } else {
+        aValue = a[sortColumn];
+        bValue = b[sortColumn];
       }
-      scoreGroups.get(row.total)!.push(index);
+
+      if (sortDirection === "desc") {
+        return bValue - aValue;
+      } else {
+        return aValue - bValue;
+      }
+    });
+
+    // スコアでグループ化（ソートカラムの値でグループ化）
+    const scoreGroups = new Map<number, number[]>();
+    sortedData.forEach((row, index) => {
+      const scoreValue = sortColumn === "total" ? row.total : row[sortColumn];
+      if (!scoreGroups.has(scoreValue)) {
+        scoreGroups.set(scoreValue, []);
+      }
+      scoreGroups.get(scoreValue)!.push(index);
     });
 
     // 順位を計算
     let currentRank = 1;
-    const rankedItems = data.map((row, index) => {
-      const groupIndices = scoreGroups.get(row.total)!;
+    const rankedItems = sortedData.map((row, index) => {
+      const scoreValue = sortColumn === "total" ? row.total : row[sortColumn];
+      const groupIndices = scoreGroups.get(scoreValue)!;
       const isFirstInGroup = groupIndices[0] === index;
       const isTie = groupIndices.length > 1 && !isFirstInGroup;
 
@@ -258,12 +295,16 @@ export default function ClaudePage() {
         currentRank = index + 1;
       }
 
-      // 順位表示のフォーマット
+      // 順位表示のフォーマット（totalの場合のみメダルを表示）
       let displayRank = "";
-      if (currentRank === 1) displayRank = "🥇 1位";
-      else if (currentRank === 2) displayRank = "🥈 2位";
-      else if (currentRank === 3) displayRank = "🥉 3位";
-      else displayRank = `${currentRank}位`;
+      if (sortColumn === "total") {
+        if (currentRank === 1) displayRank = "🥇 1位";
+        else if (currentRank === 2) displayRank = "🥈 2位";
+        else if (currentRank === 3) displayRank = "🥉 3位";
+        else displayRank = `${currentRank}位`;
+      } else {
+        displayRank = `${currentRank}位`;
+      }
 
       if (isTie) {
         displayRank += " (同点)";
@@ -277,7 +318,7 @@ export default function ClaudePage() {
     });
 
     return rankedItems;
-  }, [data]);
+  }, [data, sortColumn, sortDirection]);
 
   const handleDelete = async (id: number) => {
     if (!confirm("本当に削除しますか？")) return;
@@ -509,17 +550,57 @@ export default function ClaudePage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     プレイヤー名
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Game 1
+                  <th
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("game1")}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Game 1</span>
+                      {sortColumn === "game1" && (
+                        <span className="text-blue-600">
+                          {sortDirection === "desc" ? "▼" : "▲"}
+                        </span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Game 2
+                  <th
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("game2")}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Game 2</span>
+                      {sortColumn === "game2" && (
+                        <span className="text-blue-600">
+                          {sortDirection === "desc" ? "▼" : "▲"}
+                        </span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Game 3
+                  <th
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("game3")}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Game 3</span>
+                      {sortColumn === "game3" && (
+                        <span className="text-blue-600">
+                          {sortDirection === "desc" ? "▼" : "▲"}
+                        </span>
+                      )}
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    合計スコア
+                  <th
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("total")}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>合計スコア</span>
+                      {sortColumn === "total" && (
+                        <span className="text-blue-600">
+                          {sortDirection === "desc" ? "▼" : "▲"}
+                        </span>
+                      )}
+                    </div>
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     登録日時
