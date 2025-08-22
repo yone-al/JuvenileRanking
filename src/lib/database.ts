@@ -42,7 +42,7 @@ async function getAllDataByTotal(): Promise<ScoreData[]> {
   try {
     const data = await sql`
       SELECT * FROM "scores"
-      ORDER BY ("game1" + "game2" + "game3") DESC
+      ORDER BY ("game1" + "game2" + "game3") DESC, "created_at" DESC
     `;
     // totalを計算して追加
     return data.map(row => ({

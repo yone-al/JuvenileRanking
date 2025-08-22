@@ -58,7 +58,7 @@ export default function ClaudePage() {
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [sortColumn, setSortColumn] = useState<
-    "game1" | "game2" | "game3" | "total"
+    "game1" | "game2" | "game3" | "total" | "created_at"
   >("total");
   const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
 
@@ -85,6 +85,7 @@ export default function ClaudePage() {
       }
     };
   }, []);
+
 
   // Toast notification functions with cleanup
   const showToast = useCallback(
@@ -180,19 +181,27 @@ export default function ClaudePage() {
       throw new Error(`Failed to ${method.toLowerCase()} score`);
     }
 
-    return response;
+    return response.json();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await submitForm("/api/scores", "POST", addFormData);
+      const result = await submitForm("/api/scores", "POST", addFormData);
       setAddFormData(initialFormData);
       setShowAddForm(false);
       setShowCreatedAtField(false);
       await loadData(false); // Don't show loading screen for add operation
       showToast("スコアを追加しました", "success");
+      
+      // 新しく追加したデータへ自動スクロール（少し遅延を入れる）
+      setTimeout(() => {
+        const element = document.getElementById(`score-row-${result.id}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500);
     } catch (error) {
       console.error("Error adding score:", error);
       showToast("スコアの追加に失敗しました", "error");
@@ -241,7 +250,7 @@ export default function ClaudePage() {
   };
 
   // ソート処理のハンドラー
-  const handleSort = (column: "game1" | "game2" | "game3" | "total") => {
+  const handleSort = (column: "game1" | "game2" | "game3" | "total" | "created_at") => {
     if (sortColumn === column) {
       // 同じカラムをクリックした場合は方向を切り替える
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -258,7 +267,10 @@ export default function ClaudePage() {
     const sortedData = [...data].sort((a, b) => {
       let aValue, bValue;
 
-      if (sortColumn === "total") {
+      if (sortColumn === "created_at") {
+        aValue = new Date(a.created_at).getTime();
+        bValue = new Date(b.created_at).getTime();
+      } else if (sortColumn === "total") {
         aValue = a.total;
         bValue = b.total;
       } else {
@@ -266,17 +278,36 @@ export default function ClaudePage() {
         bValue = b[sortColumn];
       }
 
+      // 第一ソート: 選択されたカラムの値で比較
+      let primarySort;
       if (sortDirection === "desc") {
-        return bValue - aValue;
+        primarySort = bValue - aValue;
       } else {
-        return aValue - bValue;
+        primarySort = aValue - bValue;
       }
+
+      // 同点の場合は登録時間で比較（最新が上）
+      // ただし、created_atでソートしている場合はスキップ
+      if (primarySort === 0 && sortColumn !== "created_at") {
+        const aTime = new Date(a.created_at).getTime();
+        const bTime = new Date(b.created_at).getTime();
+        return bTime - aTime; // 降順（新しい方が上）
+      }
+
+      return primarySort;
     });
 
     // スコアでグループ化（ソートカラムの値でグループ化）
-    const scoreGroups = new Map<number, number[]>();
+    const scoreGroups = new Map<number | string, number[]>();
     sortedData.forEach((row, index) => {
-      const scoreValue = sortColumn === "total" ? row.total : row[sortColumn];
+      let scoreValue: number | string;
+      if (sortColumn === "created_at") {
+        scoreValue = String(row.created_at);
+      } else if (sortColumn === "total") {
+        scoreValue = row.total;
+      } else {
+        scoreValue = row[sortColumn];
+      }
       if (!scoreGroups.has(scoreValue)) {
         scoreGroups.set(scoreValue, []);
       }
@@ -286,7 +317,14 @@ export default function ClaudePage() {
     // 順位を計算
     let currentRank = 1;
     const rankedItems = sortedData.map((row, index) => {
-      const scoreValue = sortColumn === "total" ? row.total : row[sortColumn];
+      let scoreValue: number | string;
+      if (sortColumn === "created_at") {
+        scoreValue = String(row.created_at);
+      } else if (sortColumn === "total") {
+        scoreValue = row.total;
+      } else {
+        scoreValue = row[sortColumn];
+      }
       const groupIndices = scoreGroups.get(scoreValue)!;
       const isFirstInGroup = groupIndices[0] === index;
       const isTie = groupIndices.length > 1 && !isFirstInGroup;
@@ -319,6 +357,70 @@ export default function ClaudePage() {
 
     return rankedItems;
   }, [data, sortColumn, sortDirection]);
+
+  // 最新スコアを判定（最新データが24時間以内なら表示）
+  const latestScoreId = useMemo(() => {
+    if (data.length === 0) return null;
+    
+    // created_atで降順ソート（最新が先頭）
+    const sortedByDate = [...data].sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    
+    const newest = sortedByDate[0];
+    const now = new Date();
+    const newestTime = new Date(newest.created_at);
+    const timeDiff = now.getTime() - newestTime.getTime();
+    
+    // 最新データが24時間以内なら表示
+    if (timeDiff <= 24 * 60 * 60 * 1000) {
+      return newest.id;
+    }
+    
+    return null;
+  }, [data]);
+
+  // 最新スコアの情報を取得
+  const latestScoreInfo = useMemo(() => {
+    if (!latestScoreId || rankedData.length === 0) return null;
+    
+    const scoreData = rankedData.find(item => item.id === latestScoreId);
+    if (!scoreData) return null;
+    
+    // 登録からの経過時間を計算
+    const now = new Date();
+    const createdTime = new Date(scoreData.created_at);
+    const timeDiff = now.getTime() - createdTime.getTime();
+    const minutesDiff = Math.floor(timeDiff / (1000 * 60));
+    const hoursDiff = Math.floor(timeDiff / (1000 * 60 * 60));
+    
+    let timeAgo = "";
+    if (minutesDiff < 1) {
+      timeAgo = "たった今";
+    } else if (minutesDiff < 60) {
+      timeAgo = `${minutesDiff}分前`;
+    } else if (hoursDiff < 24) {
+      timeAgo = `${hoursDiff}時間前`;
+    } else {
+      timeAgo = `${Math.floor(hoursDiff / 24)}日前`;
+    }
+    
+    return {
+      ...scoreData,
+      rankPosition: rankedData.findIndex(item => item.id === latestScoreId) + 1,
+      timeAgo,
+      isVeryRecent: minutesDiff <= 5  // 5分以内は特に新しい
+    };
+  }, [latestScoreId, rankedData]);
+
+  // 最新スコアへスクロール
+  const scrollToLatest = () => {
+    if (!latestScoreId) return;
+    const element = document.getElementById(`score-row-${latestScoreId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   const handleDelete = async (id: number) => {
     if (!confirm("本当に削除しますか？")) return;
@@ -539,8 +641,42 @@ export default function ClaudePage() {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
+        <>
+          {/* 最新スコアカード */}
+          {latestScoreInfo && (
+            <div className={`mb-6 p-4 rounded-lg shadow-md ${
+              latestScoreInfo.isVeryRecent 
+                ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-orange-400' 
+                : 'bg-gradient-to-r from-blue-50 to-green-50'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800">
+                    {latestScoreInfo.isVeryRecent ? '🔥' : '🎉'} 最新スコア
+                    <span className="ml-2 text-sm font-normal text-gray-500">
+                      ({latestScoreInfo.timeAgo})
+                    </span>
+                  </h3>
+                  <p className="text-gray-600">
+                    {latestScoreInfo.name}さん - 
+                    <span className="text-2xl font-bold text-blue-600 mx-2">
+                      {latestScoreInfo.displayRank}
+                    </span>
+                    （{latestScoreInfo.total.toLocaleString()}点）
+                  </p>
+                </div>
+                <button 
+                  onClick={scrollToLatest} 
+                  className="px-4 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
+                >
+                  表で確認 →
+                </button>
+              </div>
+            </div>
+          )}
+          
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead className="bg-gray-50">
                 <tr>
@@ -602,8 +738,18 @@ export default function ClaudePage() {
                       )}
                     </div>
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    登録日時
+                  <th
+                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort("created_at")}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>登録日時</span>
+                      {sortColumn === "created_at" && (
+                        <span className="text-blue-600">
+                          {sortDirection === "desc" ? "▼" : "▲"}
+                        </span>
+                      )}
+                    </div>
                   </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     操作
@@ -613,10 +759,33 @@ export default function ClaudePage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {rankedData.map((row) => {
                   return (
-                    <tr key={row.id} className="hover:bg-gray-50">
+                    <tr 
+                      key={row.id} 
+                      id={`score-row-${row.id}`}
+                      className={`
+                        hover:bg-gray-50 transition-all duration-300
+                        ${row.id === latestScoreId 
+                          ? latestScoreInfo?.isVeryRecent 
+                            ? 'bg-yellow-50 border-l-4 border-orange-400' 
+                            : 'bg-blue-50 border-l-4 border-blue-300'
+                          : ''
+                        }
+                      `}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-lg font-semibold">
-                          {row.displayRank}
+                        <div className="flex items-center gap-2">
+                          <div className="text-lg font-semibold">
+                            {row.displayRank}
+                          </div>
+                          {row.id === latestScoreId && (
+                            <span className={`px-2 py-1 text-xs font-bold text-white rounded-full ${
+                              latestScoreInfo?.isVeryRecent 
+                                ? 'bg-red-500 animate-pulse' 
+                                : 'bg-blue-500'
+                            }`}>
+                              NEW
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -683,6 +852,7 @@ export default function ClaudePage() {
             </table>
           </div>
         </div>
+        </>
       )}
 
       <div className="mt-6 text-center">
