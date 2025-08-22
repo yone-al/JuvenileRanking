@@ -109,16 +109,19 @@ export default function HomePage() {
     clearAuto();
     clearHold();
     setSelectedCategory(cat);
-    timeoutRef.current = setTimeout(() => {
-      rotateNext();
-      startAuto();
-    }, Number(process.env.NEXT_PUBLIC_TAB_MANUAL_PAUSE) || 30000);
+    timeoutRef.current = setTimeout(
+      () => {
+        rotateNext();
+        startAuto();
+      },
+      Number(process.env.NEXT_PUBLIC_TAB_MANUAL_PAUSE) || 30000,
+    );
   };
 
   // --- レンダリング用データ ---
   // "Player" または チーム名空欄 を除外
   const validTeamData = teamData.filter(
-    (item) => item.team.trim() !== "" && item.team !== "Player"
+    (item) => item.team.trim() !== "" && item.team !== "Player",
   );
   const latestTeam =
     validTeamData.length > 0 ? [...validTeamData].reverse()[0] : null;
@@ -142,10 +145,10 @@ export default function HomePage() {
     selectedCategory === "latest"
       ? sortedByTotal
       : selectedCategory === "recent"
-      ? recent30Sorted
-      : [...validTeamData].sort(
-          (a, b) => b[selectedCategory] - a[selectedCategory]
-        );
+        ? recent30Sorted
+        : [...validTeamData].sort(
+            (a, b) => b[selectedCategory] - a[selectedCategory],
+          );
   const displayData =
     selectedCategory === "latest" ? sortedData.slice(0, 5) : sortedData;
 

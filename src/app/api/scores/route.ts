@@ -9,7 +9,7 @@ export async function GET() {
     console.error("API Error:", error);
     return NextResponse.json(
       { error: "Failed to fetch scores" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     if (!name || typeof name !== "string") {
       return NextResponse.json(
         { error: "Name is required and must be a string" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -33,14 +33,14 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         { error: "Game scores must be numbers" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (created_at && typeof created_at !== "string") {
       return NextResponse.json(
         { error: "created_at must be a valid date string" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -48,9 +48,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newScore, { status: 201 });
   } catch (error) {
     console.error("API Error:", error);
-    return NextResponse.json(
-      { error: "Failed to add score" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to add score" }, { status: 500 });
   }
 }

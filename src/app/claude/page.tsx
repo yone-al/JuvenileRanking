@@ -86,7 +86,6 @@ export default function ClaudePage() {
     };
   }, []);
 
-
   // Toast notification functions with cleanup
   const showToast = useCallback(
     (message: string, type: ToastType = "success") => {
@@ -102,7 +101,7 @@ export default function ClaudePage() {
 
       toastTimers.current.set(id, timer);
     },
-    []
+    [],
   );
 
   const removeToast = useCallback((id: number) => {
@@ -194,12 +193,12 @@ export default function ClaudePage() {
       setShowCreatedAtField(false);
       await loadData(false); // Don't show loading screen for add operation
       showToast("スコアを追加しました", "success");
-      
+
       // 新しく追加したデータへ自動スクロール（少し遅延を入れる）
       setTimeout(() => {
         const element = document.getElementById(`score-row-${result.id}`);
         if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
         }
       }, 500);
     } catch (error) {
@@ -250,7 +249,9 @@ export default function ClaudePage() {
   };
 
   // ソート処理のハンドラー
-  const handleSort = (column: "game1" | "game2" | "game3" | "total" | "created_at") => {
+  const handleSort = (
+    column: "game1" | "game2" | "game3" | "total" | "created_at",
+  ) => {
     if (sortColumn === column) {
       // 同じカラムをクリックした場合は方向を切り替える
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -361,39 +362,40 @@ export default function ClaudePage() {
   // 最新スコアを判定（最新データが24時間以内なら表示）
   const latestScoreId = useMemo(() => {
     if (data.length === 0) return null;
-    
+
     // created_atで降順ソート（最新が先頭）
-    const sortedByDate = [...data].sort((a, b) => 
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    const sortedByDate = [...data].sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
-    
+
     const newest = sortedByDate[0];
     const now = new Date();
     const newestTime = new Date(newest.created_at);
     const timeDiff = now.getTime() - newestTime.getTime();
-    
+
     // 最新データが24時間以内なら表示
     if (timeDiff <= 24 * 60 * 60 * 1000) {
       return newest.id;
     }
-    
+
     return null;
   }, [data]);
 
   // 最新スコアの情報を取得
   const latestScoreInfo = useMemo(() => {
     if (!latestScoreId || rankedData.length === 0) return null;
-    
-    const scoreData = rankedData.find(item => item.id === latestScoreId);
+
+    const scoreData = rankedData.find((item) => item.id === latestScoreId);
     if (!scoreData) return null;
-    
+
     // 登録からの経過時間を計算
     const now = new Date();
     const createdTime = new Date(scoreData.created_at);
     const timeDiff = now.getTime() - createdTime.getTime();
     const minutesDiff = Math.floor(timeDiff / (1000 * 60));
     const hoursDiff = Math.floor(timeDiff / (1000 * 60 * 60));
-    
+
     let timeAgo = "";
     if (minutesDiff < 1) {
       timeAgo = "たった今";
@@ -404,12 +406,13 @@ export default function ClaudePage() {
     } else {
       timeAgo = `${Math.floor(hoursDiff / 24)}日前`;
     }
-    
+
     return {
       ...scoreData,
-      rankPosition: rankedData.findIndex(item => item.id === latestScoreId) + 1,
+      rankPosition:
+        rankedData.findIndex((item) => item.id === latestScoreId) + 1,
       timeAgo,
-      isVeryRecent: minutesDiff <= 5  // 5分以内は特に新しい
+      isVeryRecent: minutesDiff <= 5, // 5分以内は特に新しい
     };
   }, [latestScoreId, rankedData]);
 
@@ -418,7 +421,7 @@ export default function ClaudePage() {
     if (!latestScoreId) return;
     const element = document.getElementById(`score-row-${latestScoreId}`);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   };
 
@@ -644,29 +647,31 @@ export default function ClaudePage() {
         <>
           {/* 最新スコアカード */}
           {latestScoreInfo && (
-            <div className={`mb-6 p-4 rounded-lg shadow-md ${
-              latestScoreInfo.isVeryRecent 
-                ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-orange-400' 
-                : 'bg-gradient-to-r from-blue-50 to-green-50'
-            }`}>
+            <div
+              className={`mb-6 p-4 rounded-lg shadow-md ${
+                latestScoreInfo.isVeryRecent
+                  ? "bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-orange-400"
+                  : "bg-gradient-to-r from-blue-50 to-green-50"
+              }`}
+            >
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-gray-800">
-                    {latestScoreInfo.isVeryRecent ? '🔥' : '🎉'} 最新スコア
+                    {latestScoreInfo.isVeryRecent ? "🔥" : "🎉"} 最新スコア
                     <span className="ml-2 text-sm font-normal text-gray-500">
                       ({latestScoreInfo.timeAgo})
                     </span>
                   </h3>
                   <p className="text-gray-600">
-                    {latestScoreInfo.name}さん - 
+                    {latestScoreInfo.name}さん -
                     <span className="text-2xl font-bold text-blue-600 mx-2">
                       {latestScoreInfo.displayRank}
                     </span>
                     （{latestScoreInfo.total.toLocaleString()}点）
                   </p>
                 </div>
-                <button 
-                  onClick={scrollToLatest} 
+                <button
+                  onClick={scrollToLatest}
                   className="px-4 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors"
                 >
                   表で確認 →
@@ -674,184 +679,187 @@ export default function ClaudePage() {
               </div>
             </div>
           )}
-          
+
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    順位
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    プレイヤー名
-                  </th>
-                  <th
-                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort("game1")}
-                  >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>Game 1</span>
-                      {sortColumn === "game1" && (
-                        <span className="text-blue-600">
-                          {sortDirection === "desc" ? "▼" : "▲"}
-                        </span>
-                      )}
-                    </div>
-                  </th>
-                  <th
-                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort("game2")}
-                  >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>Game 2</span>
-                      {sortColumn === "game2" && (
-                        <span className="text-blue-600">
-                          {sortDirection === "desc" ? "▼" : "▲"}
-                        </span>
-                      )}
-                    </div>
-                  </th>
-                  <th
-                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort("game3")}
-                  >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>Game 3</span>
-                      {sortColumn === "game3" && (
-                        <span className="text-blue-600">
-                          {sortDirection === "desc" ? "▼" : "▲"}
-                        </span>
-                      )}
-                    </div>
-                  </th>
-                  <th
-                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort("total")}
-                  >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>合計スコア</span>
-                      {sortColumn === "total" && (
-                        <span className="text-blue-600">
-                          {sortDirection === "desc" ? "▼" : "▲"}
-                        </span>
-                      )}
-                    </div>
-                  </th>
-                  <th
-                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort("created_at")}
-                  >
-                    <div className="flex items-center justify-center gap-1">
-                      <span>登録日時</span>
-                      {sortColumn === "created_at" && (
-                        <span className="text-blue-600">
-                          {sortDirection === "desc" ? "▼" : "▲"}
-                        </span>
-                      )}
-                    </div>
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {rankedData.map((row) => {
-                  return (
-                    <tr 
-                      key={row.id} 
-                      id={`score-row-${row.id}`}
-                      className={`
+              <table className="min-w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      順位
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      プレイヤー名
+                    </th>
+                    <th
+                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort("game1")}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Game 1</span>
+                        {sortColumn === "game1" && (
+                          <span className="text-blue-600">
+                            {sortDirection === "desc" ? "▼" : "▲"}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort("game2")}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Game 2</span>
+                        {sortColumn === "game2" && (
+                          <span className="text-blue-600">
+                            {sortDirection === "desc" ? "▼" : "▲"}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort("game3")}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Game 3</span>
+                        {sortColumn === "game3" && (
+                          <span className="text-blue-600">
+                            {sortDirection === "desc" ? "▼" : "▲"}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort("total")}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>合計スコア</span>
+                        {sortColumn === "total" && (
+                          <span className="text-blue-600">
+                            {sortDirection === "desc" ? "▼" : "▲"}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th
+                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => handleSort("created_at")}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span>登録日時</span>
+                        {sortColumn === "created_at" && (
+                          <span className="text-blue-600">
+                            {sortDirection === "desc" ? "▼" : "▲"}
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      操作
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {rankedData.map((row) => {
+                    return (
+                      <tr
+                        key={row.id}
+                        id={`score-row-${row.id}`}
+                        className={`
                         hover:bg-gray-50 transition-all duration-300
-                        ${row.id === latestScoreId 
-                          ? latestScoreInfo?.isVeryRecent 
-                            ? 'bg-yellow-50 border-l-4 border-orange-400' 
-                            : 'bg-blue-50 border-l-4 border-blue-300'
-                          : ''
+                        ${
+                          row.id === latestScoreId
+                            ? latestScoreInfo?.isVeryRecent
+                              ? "bg-yellow-50 border-l-4 border-orange-400"
+                              : "bg-blue-50 border-l-4 border-blue-300"
+                            : ""
                         }
                       `}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className="text-lg font-semibold">
-                            {row.displayRank}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div className="text-lg font-semibold">
+                              {row.displayRank}
+                            </div>
+                            {row.id === latestScoreId && (
+                              <span
+                                className={`px-2 py-1 text-xs font-bold text-white rounded-full ${
+                                  latestScoreInfo?.isVeryRecent
+                                    ? "bg-red-500 animate-pulse"
+                                    : "bg-blue-500"
+                                }`}
+                              >
+                                NEW
+                              </span>
+                            )}
                           </div>
-                          {row.id === latestScoreId && (
-                            <span className={`px-2 py-1 text-xs font-bold text-white rounded-full ${
-                              latestScoreInfo?.isVeryRecent 
-                                ? 'bg-red-500 animate-pulse' 
-                                : 'bg-blue-500'
-                            }`}>
-                              NEW
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-bold text-gray-900">
-                          {row.name}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className="text-sm text-gray-900">
-                          {row.game1.toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className="text-sm text-gray-900">
-                          {row.game2.toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className="text-sm text-gray-900">
-                          {row.game3.toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className="text-lg font-bold text-blue-600">
-                          {row.total.toLocaleString()}点
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className="text-sm text-gray-500">
-                          {new Date(row.created_at).toLocaleDateString(
-                            "ja-JP",
-                            {
-                              year: "numeric",
-                              month: "2-digit",
-                              day: "2-digit",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            }
-                          )}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <div className="flex gap-2 justify-center">
-                          <button
-                            onClick={() => handleEdit(row)}
-                            className={BUTTON_STYLES.warning}
-                            disabled={isDeleting === row.id}
-                          >
-                            編集
-                          </button>
-                          <button
-                            onClick={() => handleDelete(row.id)}
-                            className={BUTTON_STYLES.danger}
-                            disabled={isDeleting === row.id}
-                          >
-                            {isDeleting === row.id ? "削除中..." : "削除"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-bold text-gray-900">
+                            {row.name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className="text-sm text-gray-900">
+                            {row.game1.toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className="text-sm text-gray-900">
+                            {row.game2.toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className="text-sm text-gray-900">
+                            {row.game3.toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className="text-lg font-bold text-blue-600">
+                            {row.total.toLocaleString()}点
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className="text-sm text-gray-500">
+                            {new Date(row.created_at).toLocaleDateString(
+                              "ja-JP",
+                              {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <div className="flex gap-2 justify-center">
+                            <button
+                              onClick={() => handleEdit(row)}
+                              className={BUTTON_STYLES.warning}
+                              disabled={isDeleting === row.id}
+                            >
+                              編集
+                            </button>
+                            <button
+                              onClick={() => handleDelete(row.id)}
+                              className={BUTTON_STYLES.danger}
+                              disabled={isDeleting === row.id}
+                            >
+                              {isDeleting === row.id ? "削除中..." : "削除"}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
         </>
       )}
 

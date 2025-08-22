@@ -23,9 +23,9 @@ async function getAllData(): Promise<ScoreData[]> {
       SELECT * FROM "scores"
     `;
     // totalを計算して追加
-    return data.map(row => ({
+    return data.map((row) => ({
       ...row,
-      total: row.game1 + row.game2 + row.game3
+      total: row.game1 + row.game2 + row.game3,
     })) as ScoreData[];
   } catch (error) {
     console.error("Database query failed:", error);
@@ -45,9 +45,9 @@ async function getAllDataByTotal(): Promise<ScoreData[]> {
       ORDER BY ("game1" + "game2" + "game3") DESC, "created_at" DESC
     `;
     // totalを計算して追加
-    return data.map(row => ({
+    return data.map((row) => ({
       ...row,
-      total: row.game1 + row.game2 + row.game3
+      total: row.game1 + row.game2 + row.game3,
     })) as ScoreData[];
   } catch (error) {
     console.error("Database query failed:", error);
@@ -69,7 +69,7 @@ async function getScoreById(id: number): Promise<ScoreData | null> {
       const row = data[0];
       return {
         ...row,
-        total: row.game1 + row.game2 + row.game3
+        total: row.game1 + row.game2 + row.game3,
       } as ScoreData;
     }
     return null;
@@ -88,7 +88,7 @@ async function addScore(
   game1: number,
   game2: number,
   game3: number,
-  created_at?: string
+  created_at?: string,
 ): Promise<ScoreData> {
   try {
     const data = created_at
@@ -105,7 +105,7 @@ async function addScore(
     const row = data[0];
     return {
       ...row,
-      total: row.game1 + row.game2 + row.game3
+      total: row.game1 + row.game2 + row.game3,
     } as ScoreData;
   } catch (error) {
     console.error("Database insert failed:", error);
@@ -123,7 +123,7 @@ async function updateScore(
   game1: number,
   game2: number,
   game3: number,
-  created_at?: string
+  created_at?: string,
 ): Promise<ScoreData | null> {
   try {
     const data = created_at
@@ -146,7 +146,7 @@ async function updateScore(
       const row = data[0];
       return {
         ...row,
-        total: row.game1 + row.game2 + row.game3
+        total: row.game1 + row.game2 + row.game3,
       } as ScoreData;
     }
     return null;
