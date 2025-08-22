@@ -94,7 +94,7 @@ async function addScore(
     const data = created_at
       ? await sql`
           INSERT INTO "scores" ("name", "game1", "game2", "game3", "created_at")
-          VALUES (${name}, ${game1}, ${game2}, ${game3}, (${created_at} AT TIME ZONE 'Asia/Tokyo')::timestamptz)
+          VALUES (${name}, ${game1}, ${game2}, ${game3}, ${created_at}::timestamp)
           RETURNING *
         `
       : await sql`
@@ -130,7 +130,8 @@ async function updateScore(
       ? await sql`
           UPDATE "scores"
           SET "name" = ${name}, "game1" = ${game1}, "game2" = ${game2},
-              "game3" = ${game3}, "created_at" = (${created_at} AT TIME ZONE 'Asia/Tokyo')::timestamptz
+              "game3" = ${game3}, 
+              "created_at" = ${created_at}::timestamp
           WHERE "id" = ${id}
           RETURNING *
         `

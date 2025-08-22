@@ -203,7 +203,7 @@ export default function ClaudePage() {
 
   const handleEdit = (score: ScoreData) => {
     setEditingScore(score);
-    // Convert UTC to local time for datetime-local input
+    // Format date for datetime-local input
     const date = new Date(score.created_at);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
