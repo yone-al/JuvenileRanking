@@ -22,7 +22,11 @@ async function getAllData(): Promise<ScoreData[]> {
     const data = await sql`
       SELECT * FROM "scores"
     `;
-    return data as ScoreData[];
+    // totalを計算して追加
+    return data.map(row => ({
+      ...row,
+      total: row.game1 + row.game2 + row.game3
+    })) as ScoreData[];
   } catch (error) {
     console.error("Database query failed:", error);
 
@@ -38,9 +42,13 @@ async function getAllDataByTotal(): Promise<ScoreData[]> {
   try {
     const data = await sql`
       SELECT * FROM "scores"
-      ORDER BY "total" DESC
+      ORDER BY ("game1" + "game2" + "game3") DESC
     `;
-    return data as ScoreData[];
+    // totalを計算して追加
+    return data.map(row => ({
+      ...row,
+      total: row.game1 + row.game2 + row.game3
+    })) as ScoreData[];
   } catch (error) {
     console.error("Database query failed:", error);
 
@@ -57,7 +65,14 @@ async function getScoreById(id: number): Promise<ScoreData | null> {
     const data = await sql`
       SELECT * FROM "scores" WHERE "id" = ${id}
     `;
-    return data.length > 0 ? (data[0] as ScoreData) : null;
+    if (data.length > 0) {
+      const row = data[0];
+      return {
+        ...row,
+        total: row.game1 + row.game2 + row.game3
+      } as ScoreData;
+    }
+    return null;
   } catch (error) {
     console.error("Database query failed:", error);
     if (error instanceof Error) {
@@ -76,19 +91,22 @@ async function addScore(
   created_at?: string
 ): Promise<ScoreData> {
   try {
-    const total = game1 + game2 + game3;
     const data = created_at
       ? await sql`
-          INSERT INTO "scores" ("name", "game1", "game2", "game3", "total", "created_at")
-          VALUES (${name}, ${game1}, ${game2}, ${game3}, ${total}, (${created_at} AT TIME ZONE 'Asia/Tokyo')::timestamptz)
+          INSERT INTO "scores" ("name", "game1", "game2", "game3", "created_at")
+          VALUES (${name}, ${game1}, ${game2}, ${game3}, (${created_at} AT TIME ZONE 'Asia/Tokyo')::timestamptz)
           RETURNING *
         `
       : await sql`
-          INSERT INTO "scores" ("name", "game1", "game2", "game3", "total", "created_at")
-          VALUES (${name}, ${game1}, ${game2}, ${game3}, ${total}, NOW() AT TIME ZONE 'Asia/Tokyo')
+          INSERT INTO "scores" ("name", "game1", "game2", "game3", "created_at")
+          VALUES (${name}, ${game1}, ${game2}, ${game3}, NOW() AT TIME ZONE 'Asia/Tokyo')
           RETURNING *
         `;
-    return data[0] as ScoreData;
+    const row = data[0];
+    return {
+      ...row,
+      total: row.game1 + row.game2 + row.game3
+    } as ScoreData;
   } catch (error) {
     console.error("Database insert failed:", error);
     if (error instanceof Error) {
@@ -108,23 +126,29 @@ async function updateScore(
   created_at?: string
 ): Promise<ScoreData | null> {
   try {
-    const total = game1 + game2 + game3;
     const data = created_at
       ? await sql`
           UPDATE "scores"
           SET "name" = ${name}, "game1" = ${game1}, "game2" = ${game2},
-              "game3" = ${game3}, "total" = ${total}, "created_at" = (${created_at} AT TIME ZONE 'Asia/Tokyo')::timestamptz
+              "game3" = ${game3}, "created_at" = (${created_at} AT TIME ZONE 'Asia/Tokyo')::timestamptz
           WHERE "id" = ${id}
           RETURNING *
         `
       : await sql`
           UPDATE "scores"
           SET "name" = ${name}, "game1" = ${game1}, "game2" = ${game2},
-              "game3" = ${game3}, "total" = ${total}
+              "game3" = ${game3}
           WHERE "id" = ${id}
           RETURNING *
         `;
-    return data.length > 0 ? (data[0] as ScoreData) : null;
+    if (data.length > 0) {
+      const row = data[0];
+      return {
+        ...row,
+        total: row.game1 + row.game2 + row.game3
+      } as ScoreData;
+    }
+    return null;
   } catch (error) {
     console.error("Database update failed:", error);
     if (error instanceof Error) {
