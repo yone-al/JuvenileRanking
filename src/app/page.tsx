@@ -101,7 +101,8 @@ export default function HomePage() {
       clearAuto();
       clearHold();
     };
-  }, []); // このeffectはマウント時に一度だけ実行する
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // このeffectはマウント時に一度だけ実行する（startAutoを依存配列に追加すると無限ループになる）
   // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 修正箇所 ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
   // 手動切り替えハンドラ

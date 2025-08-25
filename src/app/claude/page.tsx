@@ -72,16 +72,20 @@ export default function ClaudePage() {
 
   // クリーンアップ
   useEffect(() => {
+    // ref値をローカル変数にコピー（ESLint警告回避）
+    const timersRef = toastTimers.current;
+    const loadingTimerRef = loadingTimer.current;
+    
     loadData();
 
     // コンポーネントアンマウント時のクリーンアップ
     return () => {
       // すべてのタイマーをクリア
-      toastTimers.current.forEach((timer) => clearTimeout(timer));
-      toastTimers.current.clear();
+      timersRef.forEach((timer) => clearTimeout(timer));
+      timersRef.clear();
 
-      if (loadingTimer.current) {
-        clearTimeout(loadingTimer.current);
+      if (loadingTimerRef) {
+        clearTimeout(loadingTimerRef);
       }
     };
   }, []);
