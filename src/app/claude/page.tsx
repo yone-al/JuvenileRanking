@@ -61,6 +61,12 @@ export default function ClaudePage() {
     "game1" | "game2" | "game3" | "total" | "created_at"
   >("total");
   const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
+  // ゲーム選択のステート（デフォルトはすべて選択）
+  const [selectedGames, setSelectedGames] = useState<string[]>([
+    "game1",
+    "game2",
+    "game3",
+  ]);
 
   // フォームデータを追加と編集で分離
   const [addFormData, setAddFormData] = useState<FormData>(initialFormData);
@@ -266,18 +272,51 @@ export default function ClaudePage() {
     }
   };
 
+  // ゲームのハンドル
+  const handleGameToggle = (game: string) => {
+    setSelectedGames((prev) => {
+      if (prev.includes(game)) {
+        // 最低1つは選択されている必要がある
+        if (prev.length > 1) {
+          return prev.filter((g) => g !== game);
+        }
+        return prev;
+      }
+      return [...prev, game];
+    });
+  };
+
+  // 選択されたゲームの合計スコアを計算
+  const calculateSelectedTotal = useCallback(
+    (row: ScoreData) => {
+      let total = 0;
+      if (selectedGames.includes("game1")) total += row.game1;
+      if (selectedGames.includes("game2")) total += row.game2;
+      if (selectedGames.includes("game3")) total += row.game3;
+      return total;
+    },
+    [selectedGames],
+  );
+
   // 順位計算を最適化 (O(n)に改善)
   const rankedData = useMemo(() => {
+    // データに選択されたゲームの合計を追加
+    const dataWithSelectedTotal = data.map((row) => ({
+      ...row,
+      selectedTotal: calculateSelectedTotal(row),
+    }));
+
     // データをソート
-    const sortedData = [...data].sort((a, b) => {
+    const sortedData = [...dataWithSelectedTotal].sort((a, b) => {
       let aValue, bValue;
 
       if (sortColumn === "created_at") {
         aValue = new Date(a.created_at).getTime();
         bValue = new Date(b.created_at).getTime();
       } else if (sortColumn === "total") {
-        aValue = a.total;
-        bValue = b.total;
+        // totalカラムのソートは選択されたゲームの合計を使用
+        aValue = a.selectedTotal;
+        bValue = b.selectedTotal;
       } else {
         aValue = a[sortColumn];
         bValue = b[sortColumn];
@@ -309,7 +348,7 @@ export default function ClaudePage() {
       if (sortColumn === "created_at") {
         scoreValue = String(row.created_at);
       } else if (sortColumn === "total") {
-        scoreValue = row.total;
+        scoreValue = row.selectedTotal;
       } else {
         scoreValue = row[sortColumn];
       }
@@ -326,7 +365,7 @@ export default function ClaudePage() {
       if (sortColumn === "created_at") {
         scoreValue = String(row.created_at);
       } else if (sortColumn === "total") {
-        scoreValue = row.total;
+        scoreValue = row.selectedTotal;
       } else {
         scoreValue = row[sortColumn];
       }
@@ -361,7 +400,7 @@ export default function ClaudePage() {
     });
 
     return rankedItems;
-  }, [data, sortColumn, sortDirection]);
+  }, [data, sortColumn, sortDirection, selectedGames, calculateSelectedTotal]);
 
   // 最新スコアを判定（最新データが24時間以内なら表示）
   const latestScoreId = useMemo(() => {
@@ -411,14 +450,18 @@ export default function ClaudePage() {
       timeAgo = `${Math.floor(hoursDiff / 24)}日前`;
     }
 
+    // 選択されたゲームの合計を計算
+    const selectedTotal = calculateSelectedTotal(scoreData);
+
     return {
       ...scoreData,
+      selectedTotal,
       rankPosition:
         rankedData.findIndex((item) => item.id === latestScoreId) + 1,
       timeAgo,
       isVeryRecent: minutesDiff <= 5, // 5分以内は特に新しい
     };
-  }, [latestScoreId, rankedData]);
+  }, [latestScoreId, rankedData, calculateSelectedTotal]);
 
   // 最新スコアへスクロール
   const scrollToLatest = () => {
@@ -491,6 +534,45 @@ export default function ClaudePage() {
         <h1 className="text-4xl font-bold mb-4 text-center text-gray-800">
           🎮 スコア ランキング
         </h1>
+      </div>
+
+      {/* ゲーム選択UI */}
+      <div className="mb-6 bg-white rounded-lg shadow-md p-4 border border-gray-200">
+        <h3 className="text-lg font-semibold mb-3 text-gray-700">
+          表示するゲームを選択
+        </h3>
+        <div className="flex gap-6">
+          <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
+            <input
+              type="checkbox"
+              checked={selectedGames.includes("game1")}
+              onChange={() => handleGameToggle("game1")}
+              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+            />
+            <span className="font-medium">Game 1</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
+            <input
+              type="checkbox"
+              checked={selectedGames.includes("game2")}
+              onChange={() => handleGameToggle("game2")}
+              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+            />
+            <span className="font-medium">Game 2</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
+            <input
+              type="checkbox"
+              checked={selectedGames.includes("game3")}
+              onChange={() => handleGameToggle("game3")}
+              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+            />
+            <span className="font-medium">Game 3</span>
+          </label>
+          <div className="ml-auto text-sm text-gray-500">
+            選択中: {selectedGames.length}個のゲーム
+          </div>
+        </div>
       </div>
 
       <div className="mb-6">
@@ -671,7 +753,7 @@ export default function ClaudePage() {
                     <span className="text-2xl font-bold text-blue-600 mx-2">
                       {latestScoreInfo.displayRank}
                     </span>
-                    （{latestScoreInfo.total.toLocaleString()}点）
+                    （{latestScoreInfo.selectedTotal.toLocaleString()}点）
                   </p>
                 </div>
                 <button
@@ -695,45 +777,51 @@ export default function ClaudePage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       プレイヤー名
                     </th>
-                    <th
-                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort("game1")}
-                    >
-                      <div className="flex items-center justify-center gap-1">
-                        <span>Game 1</span>
-                        {sortColumn === "game1" && (
-                          <span className="text-blue-600">
-                            {sortDirection === "desc" ? "▼" : "▲"}
-                          </span>
-                        )}
-                      </div>
-                    </th>
-                    <th
-                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort("game2")}
-                    >
-                      <div className="flex items-center justify-center gap-1">
-                        <span>Game 2</span>
-                        {sortColumn === "game2" && (
-                          <span className="text-blue-600">
-                            {sortDirection === "desc" ? "▼" : "▲"}
-                          </span>
-                        )}
-                      </div>
-                    </th>
-                    <th
-                      className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort("game3")}
-                    >
-                      <div className="flex items-center justify-center gap-1">
-                        <span>Game 3</span>
-                        {sortColumn === "game3" && (
-                          <span className="text-blue-600">
-                            {sortDirection === "desc" ? "▼" : "▲"}
-                          </span>
-                        )}
-                      </div>
-                    </th>
+                    {selectedGames.includes("game1") && (
+                      <th
+                        className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort("game1")}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Game 1</span>
+                          {sortColumn === "game1" && (
+                            <span className="text-blue-600">
+                              {sortDirection === "desc" ? "▼" : "▲"}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                    )}
+                    {selectedGames.includes("game2") && (
+                      <th
+                        className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort("game2")}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Game 2</span>
+                          {sortColumn === "game2" && (
+                            <span className="text-blue-600">
+                              {sortDirection === "desc" ? "▼" : "▲"}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                    )}
+                    {selectedGames.includes("game3") && (
+                      <th
+                        className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort("game3")}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>Game 3</span>
+                          {sortColumn === "game3" && (
+                            <span className="text-blue-600">
+                              {sortDirection === "desc" ? "▼" : "▲"}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                    )}
                     <th
                       className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                       onClick={() => handleSort("total")}
@@ -805,24 +893,30 @@ export default function ClaudePage() {
                             {row.name}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <span className="text-sm text-gray-900">
-                            {row.game1.toLocaleString()}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <span className="text-sm text-gray-900">
-                            {row.game2.toLocaleString()}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <span className="text-sm text-gray-900">
-                            {row.game3.toLocaleString()}
-                          </span>
-                        </td>
+                        {selectedGames.includes("game1") && (
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <span className="text-sm text-gray-900">
+                              {row.game1.toLocaleString()}
+                            </span>
+                          </td>
+                        )}
+                        {selectedGames.includes("game2") && (
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <span className="text-sm text-gray-900">
+                              {row.game2.toLocaleString()}
+                            </span>
+                          </td>
+                        )}
+                        {selectedGames.includes("game3") && (
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <span className="text-sm text-gray-900">
+                              {row.game3.toLocaleString()}
+                            </span>
+                          </td>
+                        )}
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <span className="text-lg font-bold text-blue-600">
-                            {row.total.toLocaleString()}点
+                            {calculateSelectedTotal(row).toLocaleString()}点
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
