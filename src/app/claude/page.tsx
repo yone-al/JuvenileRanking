@@ -3,52 +3,39 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { type ScoreData } from "@/lib/database";
 
-// 定数
-const TOAST_DURATION = 3000; // 3秒
-const LOADING_MIN_DURATION = 500; // 最小ローディング時間
+// 定数とユーティリティをインポート
+import {
+  LOADING_MIN_DURATION,
+  POLLING_INTERVAL,
+  SYNC_INDICATOR_DURATION,
+  INPUT_STYLES,
+  BUTTON_STYLES,
+} from "./constants";
+import {
+  FormData,
+  initialFormData,
+  SortColumn,
+  SortDirection,
+  RankedData,
+  LatestScoreInfo,
+} from "./types";
+import { generateDataHash, formatDateTimeLocal, getTimeAgo } from "./utils";
 
-// 共通スタイル定数
-const INPUT_STYLES =
-  "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500";
-const BUTTON_STYLES = {
-  primary:
-    "bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors",
-  success:
-    "bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition-colors",
-  warning:
-    "bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-1 px-3 rounded text-sm transition-colors",
-  danger:
-    "bg-red-500 hover:bg-red-600 text-white font-medium py-1 px-3 rounded text-sm transition-colors",
-  secondary:
-    "bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition-colors",
-};
+// カスタムフックをインポート
+import { useToast } from "./hooks/useToast";
+import { useGameSelection } from "./hooks/useGameSelection";
 
-// Toast notification types
-type ToastType = "success" | "error" | "info";
-type Toast = {
-  id: number;
-  message: string;
-  type: ToastType;
-};
+// コンポーネントをインポート
+import { Loading } from "./components/Loading";
+import { SyncStatus } from "./components/SyncStatus";
+import { GameSelector } from "./components/GameSelector";
+import { ToastContainer } from "./components/Toast";
 
-// フォームデータの型
-type FormData = {
-  name: string;
-  game1: number;
-  game2: number;
-  game3: number;
-  created_at: string;
-};
-
-const initialFormData: FormData = {
-  name: "",
-  game1: 0,
-  game2: 0,
-  game3: 0,
-  created_at: "",
-};
-
+/**
+ * ランキング表示ページのメインコンポーネント
+ */
 export default function ClaudePage() {
+  // データ管理のステート
   const [data, setData] = useState<ScoreData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -56,117 +43,173 @@ export default function ClaudePage() {
   const [showCreatedAtField, setShowCreatedAtField] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const [sortColumn, setSortColumn] = useState<
-    "game1" | "game2" | "game3" | "total" | "created_at"
-  >("total");
-  const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
-  // ゲーム選択のステート（デフォルトはすべて選択）
-  const [selectedGames, setSelectedGames] = useState<string[]>([
-    "game1",
-    "game2",
-    "game3",
-  ]);
+  const [sortColumn, setSortColumn] = useState<SortColumn>("total");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  // カスタムフック
+  const { toasts, showToast, removeToast } = useToast();
+  const { selectedGames, handleGameToggle, calculateSelectedTotal } =
+    useGameSelection();
+
+  // リアルタイム同期のステート
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
 
   // フォームデータを追加と編集で分離
   const [addFormData, setAddFormData] = useState<FormData>(initialFormData);
   const [editFormData, setEditFormData] = useState<FormData>(initialFormData);
 
   // タイマーの参照を保持
-  const toastTimers = useRef<Map<number, NodeJS.Timeout>>(new Map());
   const loadingTimer = useRef<NodeJS.Timeout | null>(null);
+  const pollingTimer = useRef<NodeJS.Timeout | null>(null);
+  const syncIndicatorTimer = useRef<NodeJS.Timeout | null>(null);
+  const lastDataHash = useRef<string>("");
 
-  // クリーンアップ
+  // データ読み込み関数
+  const loadData = useCallback(
+    async (showLoading = true, isSync = false) => {
+      try {
+        if (showLoading) {
+          setIsLoading(true);
+          // Ensure minimum loading time to show the loading screen only on initial load
+          const startTime = Date.now();
+
+          const response = await fetch("/api/scores");
+          if (response.ok) {
+            const scores = await response.json();
+
+            // Ensure loading screen shows for at least LOADING_MIN_DURATION
+            const elapsedTime = Date.now() - startTime;
+            const remainingTime = Math.max(
+              0,
+              LOADING_MIN_DURATION - elapsedTime,
+            );
+
+            if (remainingTime > 0) {
+              await new Promise((resolve) => {
+                loadingTimer.current = setTimeout(resolve, remainingTime);
+              });
+            }
+
+            // データ変更チェック
+            const newHash = generateDataHash(scores);
+            if (
+              lastDataHash.current &&
+              lastDataHash.current !== newHash &&
+              isSync
+            ) {
+              setIsSyncing(true);
+              showToast("新しいデータが見つかりました", "info");
+              // 同期インジケーターを一時的に表示
+              if (syncIndicatorTimer.current) {
+                clearTimeout(syncIndicatorTimer.current);
+              }
+              syncIndicatorTimer.current = setTimeout(() => {
+                setIsSyncing(false);
+              }, SYNC_INDICATOR_DURATION);
+            }
+            lastDataHash.current = newHash;
+
+            setData(scores);
+            setLastSyncTime(new Date());
+          } else {
+            console.error("Failed to fetch scores");
+          }
+        } else {
+          // Quick reload without loading screen for CRUD operations
+          const response = await fetch("/api/scores");
+          if (response.ok) {
+            const scores = await response.json();
+
+            // データ変更チェック
+            const newHash = generateDataHash(scores);
+            if (
+              lastDataHash.current &&
+              lastDataHash.current !== newHash &&
+              isSync
+            ) {
+              setIsSyncing(true);
+              showToast("新しいデータが見つかりました", "info");
+              // 同期インジケーターを一時的に表示
+              if (syncIndicatorTimer.current) {
+                clearTimeout(syncIndicatorTimer.current);
+              }
+              syncIndicatorTimer.current = setTimeout(() => {
+                setIsSyncing(false);
+              }, SYNC_INDICATOR_DURATION);
+            }
+            lastDataHash.current = newHash;
+
+            setData(scores);
+            setLastSyncTime(new Date());
+          } else {
+            console.error("Failed to fetch scores");
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching scores:", error);
+      } finally {
+        if (showLoading) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [showToast],
+  );
+
+  // 初回データ読み込みとクリーンアップ
   useEffect(() => {
-    // ref値をローカル変数にコピー（ESLint警告回避）
-    const timersRef = toastTimers.current;
     const loadingTimerRef = loadingTimer.current;
-    
+    const pollingTimerRef = pollingTimer.current;
+    const syncIndicatorTimerRef = syncIndicatorTimer.current;
+
     loadData();
 
     // コンポーネントアンマウント時のクリーンアップ
     return () => {
-      // すべてのタイマーをクリア
-      timersRef.forEach((timer) => clearTimeout(timer));
-      timersRef.clear();
-
       if (loadingTimerRef) {
         clearTimeout(loadingTimerRef);
       }
+      if (pollingTimerRef) {
+        clearInterval(pollingTimerRef);
+      }
+      if (syncIndicatorTimerRef) {
+        clearTimeout(syncIndicatorTimerRef);
+      }
     };
-  }, []);
+  }, [loadData]);
 
-  // Toast notification functions with cleanup
-  const showToast = useCallback(
-    (message: string, type: ToastType = "success") => {
-      const id = Date.now();
-      const newToast = { id, message, type };
-      setToasts((prev) => [...prev, newToast]);
-
-      // タイマーを設定して参照を保持
-      const timer = setTimeout(() => {
-        setToasts((prev) => prev.filter((toast) => toast.id !== id));
-        toastTimers.current.delete(id);
-      }, TOAST_DURATION);
-
-      toastTimers.current.set(id, timer);
-    },
-    [],
-  );
-
-  const removeToast = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-
-    // タイマーが存在する場合はクリア
-    const timer = toastTimers.current.get(id);
-    if (timer) {
-      clearTimeout(timer);
-      toastTimers.current.delete(id);
-    }
-  }, []);
-
-  const loadData = async (showLoading = true) => {
-    try {
-      if (showLoading) {
-        setIsLoading(true);
-        // Ensure minimum loading time to show the loading screen only on initial load
-        const startTime = Date.now();
-
-        const response = await fetch("/api/scores");
-        if (response.ok) {
-          const scores = await response.json();
-
-          // Ensure loading screen shows for at least LOADING_MIN_DURATION
-          const elapsedTime = Date.now() - startTime;
-          const remainingTime = Math.max(0, LOADING_MIN_DURATION - elapsedTime);
-
-          if (remainingTime > 0) {
-            await new Promise((resolve) => {
-              loadingTimer.current = setTimeout(resolve, remainingTime);
-            });
-          }
-          setData(scores);
-        } else {
-          console.error("Failed to fetch scores");
-        }
-      } else {
-        // Quick reload without loading screen for CRUD operations
-        const response = await fetch("/api/scores");
-        if (response.ok) {
-          const scores = await response.json();
-          setData(scores);
-        } else {
-          console.error("Failed to fetch scores");
-        }
+  // ポーリングのセットアップ
+  useEffect(() => {
+    // ポーリングを開始
+    pollingTimer.current = setInterval(() => {
+      if (
+        document.visibilityState === "visible" &&
+        !isLoading &&
+        !showAddForm &&
+        !editingScore
+      ) {
+        loadData(false, true);
       }
-    } catch (error) {
-      console.error("Error fetching scores:", error);
-    } finally {
-      if (showLoading) {
-        setIsLoading(false);
+    }, POLLING_INTERVAL);
+
+    // Visibility change イベントハンドラー
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        // タブがアクティブになったら即座に同期
+        loadData(false, true);
       }
-    }
-  };
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (pollingTimer.current) {
+        clearInterval(pollingTimer.current);
+      }
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isLoading, showAddForm, editingScore, loadData]);
 
   // フォーム送信の共通ロジック
   const submitForm = async (url: string, method: string, data: FormData) => {
@@ -221,21 +264,12 @@ export default function ClaudePage() {
 
   const handleEdit = (score: ScoreData) => {
     setEditingScore(score);
-    // Format date for datetime-local input
-    const date = new Date(score.created_at);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-    const localDateTimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
-
     setEditFormData({
       name: score.name,
       game1: score.game1,
       game2: score.game2,
       game3: score.game3,
-      created_at: localDateTimeString,
+      created_at: formatDateTimeLocal(score.created_at),
     });
   };
 
@@ -259,9 +293,7 @@ export default function ClaudePage() {
   };
 
   // ソート処理のハンドラー
-  const handleSort = (
-    column: "game1" | "game2" | "game3" | "total" | "created_at",
-  ) => {
+  const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
       // 同じカラムをクリックした場合は方向を切り替える
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -272,34 +304,8 @@ export default function ClaudePage() {
     }
   };
 
-  // ゲームのハンドル
-  const handleGameToggle = (game: string) => {
-    setSelectedGames((prev) => {
-      if (prev.includes(game)) {
-        // 最低1つは選択されている必要がある
-        if (prev.length > 1) {
-          return prev.filter((g) => g !== game);
-        }
-        return prev;
-      }
-      return [...prev, game];
-    });
-  };
-
-  // 選択されたゲームの合計スコアを計算
-  const calculateSelectedTotal = useCallback(
-    (row: ScoreData) => {
-      let total = 0;
-      if (selectedGames.includes("game1")) total += row.game1;
-      if (selectedGames.includes("game2")) total += row.game2;
-      if (selectedGames.includes("game3")) total += row.game3;
-      return total;
-    },
-    [selectedGames],
-  );
-
   // 順位計算を最適化 (O(n)に改善)
-  const rankedData = useMemo(() => {
+  const rankedData = useMemo((): RankedData[] => {
     // データに選択されたゲームの合計を追加
     const dataWithSelectedTotal = data.map((row) => ({
       ...row,
@@ -400,7 +406,7 @@ export default function ClaudePage() {
     });
 
     return rankedItems;
-  }, [data, sortColumn, sortDirection, selectedGames, calculateSelectedTotal]);
+  }, [data, sortColumn, sortDirection, calculateSelectedTotal]);
 
   // 最新スコアを判定（最新データが24時間以内なら表示）
   const latestScoreId = useMemo(() => {
@@ -426,29 +432,18 @@ export default function ClaudePage() {
   }, [data]);
 
   // 最新スコアの情報を取得
-  const latestScoreInfo = useMemo(() => {
+  const latestScoreInfo = useMemo((): LatestScoreInfo | null => {
     if (!latestScoreId || rankedData.length === 0) return null;
 
     const scoreData = rankedData.find((item) => item.id === latestScoreId);
     if (!scoreData) return null;
 
     // 登録からの経過時間を計算
-    const now = new Date();
-    const createdTime = new Date(scoreData.created_at);
-    const timeDiff = now.getTime() - createdTime.getTime();
-    const minutesDiff = Math.floor(timeDiff / (1000 * 60));
-    const hoursDiff = Math.floor(timeDiff / (1000 * 60 * 60));
-
-    let timeAgo = "";
-    if (minutesDiff < 1) {
-      timeAgo = "たった今";
-    } else if (minutesDiff < 60) {
-      timeAgo = `${minutesDiff}分前`;
-    } else if (hoursDiff < 24) {
-      timeAgo = `${hoursDiff}時間前`;
-    } else {
-      timeAgo = `${Math.floor(hoursDiff / 24)}日前`;
-    }
+    const timeAgo = getTimeAgo(scoreData.created_at);
+    const minutesDiff = Math.floor(
+      (new Date().getTime() - new Date(scoreData.created_at).getTime()) /
+        (1000 * 60),
+    );
 
     // 選択されたゲームの合計を計算
     const selectedTotal = calculateSelectedTotal(scoreData);
@@ -497,35 +492,7 @@ export default function ClaudePage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center">
-        <div className="text-center">
-          {/* メインローディングアニメーション */}
-          <div className="relative mb-6">
-            <div className="animate-bounce text-6xl mb-4">🍎</div>
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-orange-200 border-t-orange-500 mx-auto"></div>
-          </div>
-
-          {/* ローディングテキスト */}
-          <p className="text-lg text-gray-600">
-            ランキングデータを読み込み中...
-          </p>
-
-          {/* ドットアニメーション */}
-          <div className="flex justify-center mt-4 space-x-2">
-            <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
-            <div
-              className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"
-              style={{ animationDelay: "0.2s" }}
-            ></div>
-            <div
-              className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"
-              style={{ animationDelay: "0.4s" }}
-            ></div>
-          </div>
-        </div>
-      </div>
-    );
+    return <Loading />;
   }
 
   return (
@@ -534,46 +501,13 @@ export default function ClaudePage() {
         <h1 className="text-4xl font-bold mb-4 text-center text-gray-800">
           🎮 スコア ランキング
         </h1>
+        <SyncStatus isSyncing={isSyncing} lastSyncTime={lastSyncTime} />
       </div>
 
-      {/* ゲーム選択UI */}
-      <div className="mb-6 bg-white rounded-lg shadow-md p-4 border border-gray-200">
-        <h3 className="text-lg font-semibold mb-3 text-gray-700">
-          表示するゲームを選択
-        </h3>
-        <div className="flex gap-6">
-          <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
-            <input
-              type="checkbox"
-              checked={selectedGames.includes("game1")}
-              onChange={() => handleGameToggle("game1")}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-            />
-            <span className="font-medium">Game 1</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
-            <input
-              type="checkbox"
-              checked={selectedGames.includes("game2")}
-              onChange={() => handleGameToggle("game2")}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-            />
-            <span className="font-medium">Game 2</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer hover:text-blue-600">
-            <input
-              type="checkbox"
-              checked={selectedGames.includes("game3")}
-              onChange={() => handleGameToggle("game3")}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-            />
-            <span className="font-medium">Game 3</span>
-          </label>
-          <div className="ml-auto text-sm text-gray-500">
-            選択中: {selectedGames.length}個のゲーム
-          </div>
-        </div>
-      </div>
+      <GameSelector
+        selectedGames={selectedGames}
+        onGameToggle={handleGameToggle}
+      />
 
       <div className="mb-6">
         <button
@@ -1081,50 +1015,7 @@ export default function ClaudePage() {
         </div>
       )}
 
-      {/* Toast Notifications */}
-      <div className="fixed bottom-4 right-4 z-50 space-y-2">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`
-              px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300
-              animate-slide-in cursor-pointer min-w-[250px] max-w-[400px]
-              ${toast.type === "success" ? "bg-green-500 text-white" : ""}
-              ${toast.type === "error" ? "bg-red-500 text-white" : ""}
-              ${toast.type === "info" ? "bg-blue-500 text-white" : ""}
-              hover:opacity-90
-            `}
-            onClick={() => removeToast(toast.id)}
-          >
-            <div className="flex items-center">
-              <span className="mr-2 text-lg">
-                {toast.type === "success" && "✓"}
-                {toast.type === "error" && "✕"}
-                {toast.type === "info" && "ℹ"}
-              </span>
-              <span className="flex-1">{toast.message}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* CSS for animations */}
-      <style jsx>{`
-        @keyframes slide-in {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-
-        .animate-slide-in {
-          animation: slide-in 0.3s ease-out;
-        }
-      `}</style>
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 }
